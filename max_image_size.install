@@ -1,0 +1,14 @@
+<?php
+/**
+ * @file
+ * Install and update hooks.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function max_image_size_uninstall() {
+
+  variable_del('max_image_size_width');
+  variable_del('max_image_size_height');
+}

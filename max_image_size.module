@@ -1,0 +1,175 @@
+<?php
+/**
+ * @file
+ * Drupal hooks.
+ */
+
+/**
+ * Implements hook_file_presave().
+ */
+function max_image_size_file_presave($file) {
+
+  if ($image = max_image_size_resize_file($file)) {
+
+    // Update the metadata so anything relying on it is still in sync.
+    $file->filesize = $image->info['file_size'];
+    $file->metadata['width'] = $image->info['width'];
+    $file->metadata['height'] = $image->info['height'];
+  }
+}
+
+/**
+ * Implements hook_cron().
+ */
+function max_image_size_cron() {
+
+  // Only run once per day.
+  if (date('ymd', variable_get('cron_last')) == date('ymd')) {
+
+    return;
+  }
+
+  $queue = DrupalQueue::get('max_image_size');
+  $queue->createQueue();
+  // Only check for larger images if our queue is currently empty.
+  if ($queue->numberOfItems() > 0) {
+
+    return;
+  }
+
+  $dimensions = max_image_size_get_max_dimensions();
+
+  // Find images that are already in the system with dimensions greater than our
+  // target size. This abuses string sorting instead of actually sorting on
+  // sizes since file_metadata values are serialized.
+  $query = db_select('file_metadata', 'm')
+            ->fields('m', array('fid'))
+            ->condition(db_or()
+              ->condition(db_and()
+                            ->condition('m.name', 'width')
+                            ->condition('m.value', serialize($dimensions['width']), '>'))
+              ->condition(db_and()
+                            ->condition('m.name', 'height')
+                            ->condition('m.value', serialize($dimensions['height']), '>'))
+            );
+
+  $fids = $query->execute()->fetchCol();
+  if (!empty($fids)) {
+
+    foreach ($fids as $fid) {
+
+      $queue->createItem($fid);
+    }
+  }
+}
+
+/**
+ * Implements hook_cron_queue_info().
+ */
+function max_image_size_cron_queue_info() {
+
+  $queues = array();
+
+  $queues['max_image_size'] = array(
+    'worker callback' => 'max_image_size_resize_callback',
+    'time' => 30,
+  );
+
+  return $queues;
+}
+
+/**
+ * Implements hook_help().
+ */
+function max_image_size_help($path, $arg) {
+
+  $message = NULL;
+
+  switch ($path) {
+
+    case 'admin/help#max_image_size' :
+      $message = '<p>' . t('Image Resizer will resize uploaded images to be below the following dimensions: @widthx@height. To adjust these settings modify your settings.php and set max_image_size_width and max_image_size_height to the desired values.',
+        array(
+          '@width' => variable_get('max_image_size_width', 2560),
+          '@height' => variable_get('max_image_size_height', 1600),
+        )) . '</p>';
+      break;
+  }
+
+  return $message;
+}
+
+/**
+ * Cron queue callback to resize an image file.
+ *
+ * @param int $fid
+ *   The file id to load.
+ *
+ * @return NULL
+ *   No return value.
+ */
+function max_image_size_resize_callback($fid) {
+
+  $file = file_load($fid);
+  if (max_image_size_resize_file($file)) {
+
+    // Call file_save so that metadata information gets updated.
+    file_save($file);
+  }
+}
+
+/**
+ * Get the maximum image dimensions allowed.
+ *
+ * @return array
+ *   A key/value array of image dimensions.
+ */
+function max_image_size_get_max_dimensions() {
+
+  return array(
+    'width' => variable_get('max_image_size_width', 2560),
+    'height' => variable_get('max_image_size_height', 1600),
+  );
+}
+
+/**
+ * Resize the given image file to be smaller than the configured dimensions.
+ *
+ * @param object $file
+ *   A Drupal file entity.
+ *
+ * @return FALSE|object
+ *   An image object from image_load() or FALSE on no change.
+ */
+function max_image_size_resize_file($file) {
+
+  if (empty($file->type) || 'image' != $file->type) {
+
+    return FALSE;
+  }
+
+  $dimensions = max_image_size_get_max_dimensions();
+
+  $is_bad_size = empty($dimensions['width']) || $dimensions['width'] <= 0;
+  $is_bad_size |= empty($dimensions['height']) || $dimensions['height'] <= 0;
+  if ($is_bad_size) {
+
+    watchdog('max_image_size',
+      'Invalid image dimensions specified: @widthx@height',
+      array(
+        '@width' => $dimensions['width'],
+        '@height' => $dimensions['height'],
+      ),
+      WATCHDOG_NOTICE);
+
+    return FALSE;
+  }
+
+  $image = image_load($file->uri);
+  if (!image_scale($image, $dimensions['width'], $dimensions['height'])) {
+
+    return FALSE;
+  }
+
+  return image_save($image) ? $image : FALSE;
+}
