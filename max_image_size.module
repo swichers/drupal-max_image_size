@@ -4,6 +4,9 @@
  * Drupal hooks.
  */
 
+define('MAX_IMAGE_SIZE_DEFAULT_WIDTH', 2560);
+define('MAX_IMAGE_SIZE_DEFAULT_HEIGHT', 1600);
+
 /**
  * Implements hook_file_presave().
  */
@@ -86,16 +89,16 @@ function max_image_size_help($path, $arg) {
     case 'admin/config/media/max-image-size':
       $message = '<p>' . t('Max Image Size will resize uploaded images to be below the following dimensions: @widthx@height. Once an image has been processed it is non-reversible, so please be sure that you set the correct dimensions.',
         array(
-          '@width' => variable_get('max_image_size_width', 2560),
-          '@height' => variable_get('max_image_size_height', 1600),
+          '@width' => variable_get('max_image_size_width', MAX_IMAGE_SIZE_DEFAULT_WIDTH),
+          '@height' => variable_get('max_image_size_height', MAX_IMAGE_SIZE_DEFAULT_HEIGHT),
         )) . '</p>';
       break;
 
     case 'admin/help#max_image_size':
       $message = '<p>' . t('Max Image Size will resize uploaded images to be below the following dimensions: @widthx@height. To adjust these settings visit <a href="/admin/config/media/max-image-size">the configuration page</a> and set the width and height to the desired values.',
         array(
-          '@width' => variable_get('max_image_size_width', 2560),
-          '@height' => variable_get('max_image_size_height', 1600),
+          '@width' => variable_get('max_image_size_width', MAX_IMAGE_SIZE_DEFAULT_WIDTH),
+          '@height' => variable_get('max_image_size_height', MAX_IMAGE_SIZE_DEFAULT_HEIGHT),
         )) . '</p>';
       break;
   }
@@ -227,6 +230,7 @@ function max_image_size_system_settings_form() {
 function max_image_size_get_oversized_images() {
 
   $fids = drupal_static(__FUNCTION__, array());
+
   if (empty($fids)) {
 
     $dimensions = max_image_size_get_max_dimensions();
@@ -260,8 +264,8 @@ function max_image_size_get_oversized_images() {
 function max_image_size_get_max_dimensions() {
 
   return array(
-    'width' => variable_get('max_image_size_width', 2560),
-    'height' => variable_get('max_image_size_height', 1600),
+    'width' => intval(variable_get('max_image_size_width', MAX_IMAGE_SIZE_DEFAULT_WIDTH)),
+    'height' => intval(variable_get('max_image_size_height', MAX_IMAGE_SIZE_DEFAULT_HEIGHT)),
   );
 }
 
