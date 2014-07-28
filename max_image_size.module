@@ -263,9 +263,24 @@ function max_image_size_get_oversized_images() {
  */
 function max_image_size_get_max_dimensions() {
 
+  $width = intval(variable_get('max_image_size_width', MAX_IMAGE_SIZE_DEFAULT_WIDTH));
+  $height = intval(variable_get('max_image_size_height', MAX_IMAGE_SIZE_DEFAULT_HEIGHT));
+
+  if ($width <= 0) {
+
+    drupal_set_message(t('Max image width is set to an invalid size (must be greater than zero).'), 'warn');
+    $width = MAX_IMAGE_SIZE_DEFAULT_WIDTH;
+  }
+
+  if ($height <= 0) {
+
+    drupal_set_message(t('Max image height is set to an invalid size (must be greater than zero).'), 'warn');
+    $height = MAX_IMAGE_SIZE_DEFAULT_HEIGHT;
+  }
+
   return array(
-    'width' => intval(variable_get('max_image_size_width', MAX_IMAGE_SIZE_DEFAULT_WIDTH)),
-    'height' => intval(variable_get('max_image_size_height', MAX_IMAGE_SIZE_DEFAULT_HEIGHT)),
+    'width' => $width,
+    'height' => $height,
   );
 }
 
