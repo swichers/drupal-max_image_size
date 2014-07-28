@@ -23,8 +23,9 @@ uploaded. It will scan for images above the configured dimensions once a day and
 queue them to be resized.
 
 By default this module will resize images to be under 2560x1600. If you want to
-change the dimensions it uses then you need to edit your settings.php and set
-the following:
+change the dimensions it uses then you will need to update the module's
+configuration. You can do this either through the interface, or by editing your
+settings.php and setting the following:
 
 ```
 <?php
