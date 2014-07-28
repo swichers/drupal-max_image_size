@@ -9,6 +9,12 @@
  */
 function max_image_size_file_presave($file) {
 
+  // Don't resize uploaded files if the setting is disabled.
+  if (!variable_get('max_image_size_presave_enabled', TRUE)) {
+
+    return;
+  }
+
   if ($image = max_image_size_resize_file($file)) {
 
     // Update the metadata so anything relying on it is still in sync.
@@ -29,6 +35,12 @@ function max_image_size_cron() {
     return;
   }
 
+  // Only run cron if it is enabled.
+  if (!variable_get('max_image_size_cron_enabled', TRUE)) {
+
+    return;
+  }
+
   $queue = DrupalQueue::get('max_image_size');
   $queue->createQueue();
   // Only check for larger images if our queue is currently empty.
@@ -37,23 +49,7 @@ function max_image_size_cron() {
     return;
   }
 
-  $dimensions = max_image_size_get_max_dimensions();
-
-  // Find images that are already in the system with dimensions greater than our
-  // target size. This abuses string sorting instead of actually sorting on
-  // sizes since file_metadata values are serialized.
-  $query = db_select('file_metadata', 'm')
-            ->fields('m', array('fid'))
-            ->condition(db_or()
-              ->condition(db_and()
-                            ->condition('m.name', 'width')
-                            ->condition('m.value', serialize($dimensions['width']), '>'))
-              ->condition(db_and()
-                            ->condition('m.name', 'height')
-                            ->condition('m.value', serialize($dimensions['height']), '>'))
-            );
-
-  $fids = $query->execute()->fetchCol();
+  $fids = max_image_size_get_oversized_images();
   if (!empty($fids)) {
 
     foreach ($fids as $fid) {
@@ -87,8 +83,16 @@ function max_image_size_help($path, $arg) {
 
   switch ($path) {
 
-    case 'admin/help#max_image_size' :
-      $message = '<p>' . t('Image Resizer will resize uploaded images to be below the following dimensions: @widthx@height. To adjust these settings modify your settings.php and set max_image_size_width and max_image_size_height to the desired values.',
+    case 'admin/config/media/max-image-size':
+      $message = '<p>' . t('Max Image Size will resize uploaded images to be below the following dimensions: @widthx@height. Once an image has been processed it is non-reversible, so please be sure that you set the correct dimensions.',
+        array(
+          '@width' => variable_get('max_image_size_width', 2560),
+          '@height' => variable_get('max_image_size_height', 1600),
+        )) . '</p>';
+      break;
+
+    case 'admin/help#max_image_size':
+      $message = '<p>' . t('Max Image Size will resize uploaded images to be below the following dimensions: @widthx@height. To adjust these settings visit <a href="/admin/config/media/max-image-size">the configuration page</a> and set the width and height to the desired values.',
         array(
           '@width' => variable_get('max_image_size_width', 2560),
           '@height' => variable_get('max_image_size_height', 1600),
@@ -182,4 +186,133 @@ function max_image_size_resize_file($file) {
   }
 
   return image_save($image) ? $image : FALSE;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function max_image_size_menu() {
+
+  $items = array();
+  $items['admin/config/media/max-image-size'] = array(
+    'title' => 'Max Image Size',
+    'description' => 'Configure the behavior of the Max Image Size module.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('max_image_size_system_settings_form'),
+    'access arguments' => array('administer max_image_size'),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function max_image_size_permission() {
+
+  return array(
+    'administer max_image_size' => array(
+        'title' => t('Administer max image size'),
+        'description' => t('Allows administration of the max image size module.'),
+      ),
+    );
+}
+
+/**
+ * Implements hook_form().
+ */
+function max_image_size_system_settings_form() {
+
+  $form = array();
+
+  $dimensions = max_image_size_get_max_dimensions();
+
+  $form['dimensions'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Maximum dimensions'),
+    '#description' => t('The maximum allowable dimensions that images will be used to resize images. Any images over the given dimensions will be scaled to fit.')
+  );
+
+  $form['dimensions']['max_image_size_width'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Width'),
+    '#description' => t('The maximum allowed width for Drupal managed images.'),
+    '#default_value' => $dimensions['width'],
+    '#size' => 5,
+    '#maxlength' => 6,
+    '#element_validate' => array('element_validate_integer_positive'),
+  );
+
+  $form['dimensions']['max_image_size_height'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Height'),
+    '#description' => t('The maximum allowed height for Drupal managed images.'),
+    '#default_value' => $dimensions['height'],
+    '#size' => 5,
+    '#maxlength' => 6,
+    '#element_validate' => array('element_validate_integer_positive'),
+  );
+
+  $form['max_image_size_cron_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Cron processing enabled'),
+    '#description' => t('Check this box to enable daily resizing of images to be below the specified dimensions.'),
+    '#return_value' => TRUE,
+    '#default_value' => variable_get('max_image_size_cron_enabled', TRUE),
+  );
+
+  $form['max_image_size_presave_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Presave enabled'),
+    '#description' => t('Check this box to enable resizing of images when they are added to Drupal.'),
+    '#return_value' => TRUE,
+    '#default_value' => variable_get('max_image_size_presave_enabled', TRUE),
+  );
+
+  // Add a little information about the number of images that will be resized.
+  $pending = count(max_image_size_get_oversized_images());
+  $form['oversized_images'] = array(
+    '#type' => 'item',
+    '#title' => t('Pending images'),
+    '#title_display' => 'invisible',
+    '#description' => t('The number of images greater than the configured dimensions.'),
+    '#markup' => ($pending <= 0 ?
+      t('There are no images pending.') :
+      format_plural($pending, 'There is one image pending.', 'There are @count images pending.')),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Get all images that are larger than the configured size.
+ *
+ * @return array
+ *   An array of file IDs that are larger than the configured dimensions.
+ */
+function max_image_size_get_oversized_images() {
+
+  $fids = drupal_static(__FUNCTION__, array());
+  if (empty($fids)) {
+
+    $dimensions = max_image_size_get_max_dimensions();
+
+    // Find images that are already in the system with dimensions greater than our
+    // target size. This abuses string sorting instead of actually sorting on
+    // sizes since file_metadata values are serialized.
+    $query = db_select('file_metadata', 'm')
+              ->fields('m', array('fid'))
+              ->condition(db_or()
+                ->condition(db_and()
+                              ->condition('m.name', 'width')
+                              ->condition('m.value', serialize($dimensions['width']), '>'))
+                ->condition(db_and()
+                              ->condition('m.name', 'height')
+                              ->condition('m.value', serialize($dimensions['height']), '>'))
+              );
+
+    $fids = $query->execute()->fetchCol();
+  }
+
+  return $fids;
 }
