@@ -123,72 +123,6 @@ function max_image_size_resize_callback($fid) {
 }
 
 /**
- * Get the maximum image dimensions allowed.
- *
- * @return array
- *   A key/value array of image dimensions.
- */
-function max_image_size_get_max_dimensions() {
-
-  return array(
-    'width' => variable_get('max_image_size_width', 2560),
-    'height' => variable_get('max_image_size_height', 1600),
-  );
-}
-
-/**
- * Resize the given image file to be smaller than the configured dimensions.
- *
- * @param object $file
- *   A Drupal file entity.
- *
- * @return FALSE|object
- *   An image object from image_load() or FALSE on no change.
- */
-function max_image_size_resize_file($file) {
-
-  if (empty($file->type) || 'image' != $file->type) {
-
-    return FALSE;
-  }
-
-  $dimensions = max_image_size_get_max_dimensions();
-
-  $is_bad_size = empty($dimensions['width']) || $dimensions['width'] <= 0;
-  $is_bad_size |= empty($dimensions['height']) || $dimensions['height'] <= 0;
-  if ($is_bad_size) {
-
-    watchdog('max_image_size',
-      'Invalid image dimensions specified: @widthx@height',
-      array(
-        '@width' => $dimensions['width'],
-        '@height' => $dimensions['height'],
-      ),
-      WATCHDOG_NOTICE);
-
-    return FALSE;
-  }
-
-  $image = image_load($file->uri);
-  $original = $image;
-  if (!image_scale($image, $dimensions['width'], $dimensions['height'])) {
-
-    return FALSE;
-  }
-
-  // image_scale() will return TRUE even if it doesn't adjust the image, so we
-  // need to do our own check to avoid unnecessary image manipulations.
-  $is_unchanged = $original->info['width'] == $image->info['width'];
-  $is_unchanged &= $original->info['height'] == $image->info['height'];
-  if ($is_unchanged) {
-
-    return FALSE;
-  }
-
-  return image_save($image) ? $image : FALSE;
-}
-
-/**
  * Implements hook_menu().
  */
 function max_image_size_menu() {
@@ -315,4 +249,70 @@ function max_image_size_get_oversized_images() {
   }
 
   return $fids;
+}
+
+/**
+ * Get the maximum image dimensions allowed.
+ *
+ * @return array
+ *   A key/value array of image dimensions.
+ */
+function max_image_size_get_max_dimensions() {
+
+  return array(
+    'width' => variable_get('max_image_size_width', 2560),
+    'height' => variable_get('max_image_size_height', 1600),
+  );
+}
+
+/**
+ * Resize the given image file to be smaller than the configured dimensions.
+ *
+ * @param object $file
+ *   A Drupal file entity.
+ *
+ * @return FALSE|object
+ *   An image object from image_load() or FALSE on no change.
+ */
+function max_image_size_resize_file($file) {
+
+  if (empty($file->type) || 'image' != $file->type) {
+
+    return FALSE;
+  }
+
+  $dimensions = max_image_size_get_max_dimensions();
+
+  $is_bad_size = empty($dimensions['width']) || $dimensions['width'] <= 0;
+  $is_bad_size |= empty($dimensions['height']) || $dimensions['height'] <= 0;
+  if ($is_bad_size) {
+
+    watchdog('max_image_size',
+      'Invalid image dimensions specified: @widthx@height',
+      array(
+        '@width' => $dimensions['width'],
+        '@height' => $dimensions['height'],
+      ),
+      WATCHDOG_NOTICE);
+
+    return FALSE;
+  }
+
+  $image = image_load($file->uri);
+  $original = $image;
+  if (!image_scale($image, $dimensions['width'], $dimensions['height'])) {
+
+    return FALSE;
+  }
+
+  // image_scale() will return TRUE even if it doesn't adjust the image, so we
+  // need to do our own check to avoid unnecessary image manipulations.
+  $is_unchanged = $original->info['width'] == $image->info['width'];
+  $is_unchanged &= $original->info['height'] == $image->info['height'];
+  if ($is_unchanged) {
+
+    return FALSE;
+  }
+
+  return image_save($image) ? $image : FALSE;
 }
