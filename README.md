@@ -5,6 +5,9 @@ the original image you should use
 image style. The use case for this module is sites where users may upload very
 large images, but you do not want/need to keep the original.
 
+This is different from the core image field size restrictions in that it will
+work on already uploaded files and imported content.
+
 ## Related
 
 These modules will allow you to adjust the site of the displayed image while
