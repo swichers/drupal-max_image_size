@@ -218,7 +218,26 @@ function max_image_size_system_settings_form() {
       format_plural($pending, 'There is one image pending.', 'There are @count images pending.')),
   );
 
+  $form['#submit'][] = 'max_image_size_system_settings_form_submit';
+
   return system_settings_form($form);
+}
+
+/**
+ * Form submission handler.
+ */
+function max_image_size_system_settings_form_submit($form, &$form_state) {
+
+  // Again state that the dimension settings are very important and the process
+  // is non-reversible.
+  drupal_set_message(t('The process of resizing an image is non-reversible. Please review the entered dimensions to ensure that they are correct. Once an image has been resized it will forever be altered.'), 'warning');
+
+  // If the user has disabled both processing options then let them know we
+  // won't actually do anything until they are enabled.
+  if (empty($values['max_image_size_cron_enabled']) && empty($values['max_image_size_presave_enabled'])) {
+
+    drupal_set_message(t('Both the cron and presave options are disabled. This module will not take any action until one of those options is enabled.'), 'warning');
+  }
 }
 
 /**
