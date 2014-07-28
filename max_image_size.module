@@ -243,10 +243,10 @@ function max_image_size_get_oversized_images() {
               ->condition(db_or()
                 ->condition(db_and()
                               ->condition('m.name', 'width')
-                              ->condition('m.value', serialize($dimensions['width']), '>'))
+                              ->condition('m.value', serialize(intval($dimensions['width'])), '>'))
                 ->condition(db_and()
                               ->condition('m.name', 'height')
-                              ->condition('m.value', serialize($dimensions['height']), '>'))
+                              ->condition('m.value', serialize(intval($dimensions['height'])), '>'))
               );
 
     $fids = $query->execute()->fetchCol();
