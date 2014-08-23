@@ -232,6 +232,8 @@ function max_image_size_system_settings_form_submit($form, &$form_state) {
   // is non-reversible.
   drupal_set_message(t('The process of resizing an image is non-reversible. Please review the entered dimensions to ensure that they are correct. Once an image has been resized it will forever be altered.'), 'warning');
 
+  $values = $form_state['values'];
+
   // If the user has disabled both processing options then let them know we
   // won't actually do anything until they are enabled.
   if (empty($values['max_image_size_cron_enabled']) && empty($values['max_image_size_presave_enabled'])) {
