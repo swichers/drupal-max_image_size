@@ -254,19 +254,26 @@ function max_image_size_get_oversized_images() {
 
     $dimensions = max_image_size_get_max_dimensions();
 
-    // Find images that are already in the system with dimensions greater than our
-    // target size. This abuses string sorting instead of actually sorting on
-    // sizes since file_metadata values are serialized.
+    $or = db_or();
+    foreach (array('width', 'height') as $key) {
+
+      $or->condition(
+          db_and()
+            ->condition('m.name', $key)
+            // MySQL specific! Chops off 'i:' and ';' from serialized size value
+            // and casts it to an int.
+            // Using this cast twice as a where clause should be faster than the
+            // use of group by + having.
+            ->where('CAST(SUBSTRING(m.value, 3, LENGTH(m.value) - 3) AS UNSIGNED) > :size', array(':size' => $dimensions[$key]))
+        );
+    }
+
+    // Find images that are already in the system with dimensions greater than
+    // our target size.
     $query = db_select('file_metadata', 'm')
               ->fields('m', array('fid'))
-              ->condition(db_or()
-                ->condition(db_and()
-                              ->condition('m.name', 'width')
-                              ->condition('m.value', serialize(intval($dimensions['width'])), '>'))
-                ->condition(db_and()
-                              ->condition('m.name', 'height')
-                              ->condition('m.value', serialize(intval($dimensions['height'])), '>'))
-              );
+              ->condition($or)
+              ->distinct();
 
     $fids = $query->execute()->fetchCol();
   }
