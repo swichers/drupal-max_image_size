@@ -39,6 +39,16 @@ function max_image_size_system_settings_form() {
     '#element_validate' => array('element_validate_integer_positive'),
   );
 
+  $form['filesize'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Filesize threshold'),
+    '#description' => t('The minimum size (in bytes) before the dimensions of an image are checked. Use 0 or leave blank to disable this feature.'),
+    '#default_value' => variable_get('max_image_size_filesize_threshold'),
+    '#size' => 5,
+    '#maxlength' => 6,
+    '#element_validate' => array('element_validate_integer_positive'),
+  );
+
   $form['max_image_size_cron_enabled'] = array(
     '#type' => 'checkbox',
     '#title' => t('Cron processing enabled'),
