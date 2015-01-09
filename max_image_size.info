@@ -3,3 +3,5 @@ description = Resizes uploaded images so they are under a maximum
 package = Media
 core = 7.x
 configure = admin/config/media/max-image-size
+
+dependencies[] = file_entity
