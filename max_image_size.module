@@ -305,7 +305,7 @@ function max_image_size_discover_images() {
   }
 
   $query = db_insert('max_image_size', array('return' => Database::RETURN_AFFECTED))
-    ->fields(array('fid', 'created'));
+    ->fields(array('fid', 'created', 'width', 'height'));
 
   foreach ($fids as $fid) {
 
