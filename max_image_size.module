@@ -380,6 +380,7 @@ function max_image_size_get_unknown_fids() {
   // Pull all fids from the file_managed table that aren't in the process table.
   $query = db_select('file_managed', 'm')
             ->fields('m', array('fid'))
+            ->condition('m.status', FILE_STATUS_PERMANENT)
             ->condition('m.fid', $subquery, 'NOT IN');
 
   // ...And restrict to those greater than the specified filesize.
