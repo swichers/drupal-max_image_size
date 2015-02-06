@@ -240,16 +240,6 @@ function max_image_size_resize_file($file) {
     return FALSE;
   }
 
-  // Update the process table entry with the new image information.
-  db_update('max_image_size')
-    ->fields(array(
-      'changed' => REQUEST_TIME,
-      'width' => $image->info['width'],
-      'height' => $image->info['height'],
-    ))
-    ->condition('fid', $file->fid)
-    ->execute();
-
   // image_scale() will return TRUE even if it doesn't adjust the image, so we
   // need to do our own check to avoid unnecessary image manipulations.
   $is_unchanged = $original->info['width'] == $image->info['width'];
@@ -265,6 +255,16 @@ function max_image_size_resize_file($file) {
 
     return FALSE;
   }
+
+  // Update the process table entry with the new image information.
+  db_update('max_image_size')
+    ->fields(array(
+      'changed' => REQUEST_TIME,
+      'width' => $image->info['width'],
+      'height' => $image->info['height'],
+    ))
+    ->condition('fid', $file->fid)
+    ->execute();
 
   return $image;
 }
