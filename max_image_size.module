@@ -415,6 +415,11 @@ function max_image_size_queue_unprocessed_images() {
 
       $queue->createItem($fid);
     }
+
+    watchdog('max_image_size',
+      'Added @count items to process queue.',
+      array('@count' => count($fids)),
+      WATCHDOG_NOTICE);
   }
 
   return count($fids);

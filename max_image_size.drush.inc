@@ -57,7 +57,7 @@ function drush_max_image_size_queue() {
   $result = max_image_size_queue_unprocessed_images();
   if ($result) {
 
-    drush_log(dt('Discovered @count new files.', array('@count' => $result)), 'ok');
+    drush_log(dt('@count files in queue.', array('@count' => $result)), 'ok');
   }
   else {
 
