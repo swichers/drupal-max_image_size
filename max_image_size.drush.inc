@@ -93,6 +93,17 @@ function drush_max_image_size_process() {
   for ($i = 0; $i < $limit; $i++) {
 
     $item = $queue->claimItem();
+    if (empty($item->data) || !is_numeric($item->data)) {
+
+      drush_log(dt('Queue item @id did not contain a valid file id (@fid).',
+        array(
+          '@id' => $item->item_id,
+          '@fid' => $item->data,
+        )), 'error');
+
+      continue;
+    }
+
     drush_log(dt('Processing file id @fid (@index / @total @percent%).',
               array(
                 '@fid' => $item->data,
