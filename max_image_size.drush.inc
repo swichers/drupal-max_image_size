@@ -93,7 +93,13 @@ function drush_max_image_size_process() {
   for ($i = 0; $i < $limit; $i++) {
 
     $item = $queue->claimItem();
-    drush_log(dt('Processing file id @fid', array('@fid' => $item->data)), 'ok');
+    drush_log(dt('Processing file id @fid (@index / @total @percent%).',
+              array(
+                '@fid' => $item->data,
+                '@index' => $i,
+                '@total' => $limit,
+                '@percent' => ceil($i / $limit) * 100,
+              )), 'ok');
     max_image_size_resize_callback($item->data);
     $queue->deleteItem($item);
   }
