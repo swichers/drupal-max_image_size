@@ -45,7 +45,12 @@ function max_image_size_cron() {
   // Only run cron if it is enabled.
   if (variable_get('max_image_size_cron_enabled', TRUE)) {
 
-    max_image_size_queue_unprocessed_images();
+    $count = max_image_size_queue_unprocessed_images();
+
+    watchdog('max_image_size',
+      'Added @count items to the process table.',
+      array('@count' => $count),
+      WATCHDOG_INFO);
   }
 }
 
@@ -237,8 +242,8 @@ function max_image_size_resize_file($file) {
   if (empty($image)) {
 
     watchdog('max_image_size',
-      'Unable to load image @fid',
-      array('@fid' => $fid),
+      'Unable to load image @uri (@fid) for resizing.',
+      array('@fid' => $fid, '@uri' => $file->uri),
       WATCHDOG_NOTICE);
 
     return FALSE;
@@ -246,6 +251,11 @@ function max_image_size_resize_file($file) {
 
   $original = clone $image;
   if (!image_scale($image, $dimensions['width'], $dimensions['height'])) {
+
+    watchdog('max_image_size',
+      'Failed to scale image @uri (@fid).',
+      array('@fid' => $fid, '@uri' => $file->uri),
+      WATCHDOG_NOTICE);
 
     return FALSE;
   }
@@ -303,7 +313,7 @@ function max_image_size_discover_images() {
     if (empty($file)) {
 
       watchdog('max_image_size',
-        'Unable to load file @fid',
+        'Unable to load file (@fid) for insertion.',
         array('@fid' => $fid),
         WATCHDOG_NOTICE);
 
@@ -314,12 +324,21 @@ function max_image_size_discover_images() {
     if (empty($image)) {
 
       watchdog('max_image_size',
-        'Unable to load image @fid',
+        'Unable to load image (@fid) for insertion.',
         array('@fid' => $fid),
         WATCHDOG_NOTICE);
 
       continue;
     }
+
+    watchdog('max_image_size', 'Adding image @uri (@fid) with @widthx@height.',
+            array(
+              '@uri' => $file->uri,
+              '@fid' => $file->fid,
+              '@width' => $image->info['width'],
+              '@height' => $image->info['height'],
+            ),
+            WATCHDOG_DEBUG);
 
     $query->values(array(
         'fid' => $fid,
