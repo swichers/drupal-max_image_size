@@ -304,51 +304,64 @@ function max_image_size_discover_images() {
     return false;
   }
 
-  $query = db_insert('max_image_size', array('return' => Database::RETURN_AFFECTED))
+  $inserted_count = 0;
+
+  // The base query we use for inserting image information into the process
+  // table.
+  $base_query = db_insert('max_image_size', array('return' => Database::RETURN_AFFECTED))
     ->fields(array('fid', 'created', 'width', 'height'));
 
-  foreach ($fids as $fid) {
+  // Split our list of fids into more digestable chunks in an effort to avoid
+  // query length limits that may be in place.
+  $insert_chunks = array_chunk($fids, 500);
 
-    $file = file_load($fid);
-    if (empty($file)) {
+  foreach ($insert_chunks as $chunk) {
 
-      watchdog('max_image_size',
-        'Unable to load file (@fid) for insertion.',
-        array('@fid' => $fid),
-        WATCHDOG_NOTICE);
+    $query = clone $base_query;
+    foreach ($chunk as $fid) {
 
-      continue;
+      $file = file_load($fid);
+      if (empty($file)) {
+
+        watchdog('max_image_size',
+          'Unable to load file (@fid) for insertion.',
+          array('@fid' => $fid),
+          WATCHDOG_NOTICE);
+
+        continue;
+      }
+
+      $image = image_load($file->uri);
+      if (empty($image)) {
+
+        watchdog('max_image_size',
+          'Unable to load image (@fid) for insertion.',
+          array('@fid' => $fid),
+          WATCHDOG_NOTICE);
+
+        continue;
+      }
+
+      watchdog('max_image_size', 'Adding image @uri (@fid) with @widthx@height.',
+              array(
+                '@uri' => $file->uri,
+                '@fid' => $file->fid,
+                '@width' => $image->info['width'],
+                '@height' => $image->info['height'],
+              ),
+              WATCHDOG_DEBUG);
+
+      $query->values(array(
+          'fid' => $fid,
+          'created' => REQUEST_TIME,
+          'width' => $image->info['width'],
+          'height' => $image->info['height'],
+        ));
+
+      $inserted_count += $query->execute();
     }
-
-    $image = image_load($file->uri);
-    if (empty($image)) {
-
-      watchdog('max_image_size',
-        'Unable to load image (@fid) for insertion.',
-        array('@fid' => $fid),
-        WATCHDOG_NOTICE);
-
-      continue;
-    }
-
-    watchdog('max_image_size', 'Adding image @uri (@fid) with @widthx@height.',
-            array(
-              '@uri' => $file->uri,
-              '@fid' => $file->fid,
-              '@width' => $image->info['width'],
-              '@height' => $image->info['height'],
-            ),
-            WATCHDOG_DEBUG);
-
-    $query->values(array(
-        'fid' => $fid,
-        'created' => REQUEST_TIME,
-        'width' => $image->info['width'],
-        'height' => $image->info['height'],
-      ));
   }
-
-  return $query->execute();
+  return $inserted_count;
 }
 
 /**
