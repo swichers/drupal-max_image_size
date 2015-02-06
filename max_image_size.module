@@ -419,3 +419,14 @@ function max_image_size_queue_unprocessed_images() {
 
   return count($fids);
 }
+
+/**
+ * Implements hook_file_delete().
+ */
+function max_image_size_file_delete($file) {
+
+  // Remove the file from our process table.
+  db_delete('max_image_size')
+    ->condition('fid', $fild->fid)
+    ->execute();
+}
