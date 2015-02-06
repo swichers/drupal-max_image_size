@@ -6,6 +6,8 @@
 
 define('MAX_IMAGE_SIZE_DEFAULT_WIDTH', 2560);
 define('MAX_IMAGE_SIZE_DEFAULT_HEIGHT', 1600);
+define('MAX_IMAGE_SIZE_UNPROCESSED', 0);
+define('MAX_IMAGE_SIZE_PROCESSED', 1);
 
 /**
  * Implements hook_file_presave().
@@ -22,8 +24,12 @@ function max_image_size_file_presave($file) {
 
     // Update the metadata so anything relying on it is still in sync.
     $file->filesize = $image->info['file_size'];
-    $file->metadata['width'] = $image->info['width'];
-    $file->metadata['height'] = $image->info['height'];
+
+    if (module_exists('file_entity')) {
+
+      $file->metadata['width'] = $image->info['width'];
+      $file->metadata['height'] = $image->info['height'];
+    }
   }
 }
 
@@ -39,26 +45,9 @@ function max_image_size_cron() {
   }
 
   // Only run cron if it is enabled.
-  if (!variable_get('max_image_size_cron_enabled', TRUE)) {
+  if (variable_get('max_image_size_cron_enabled', TRUE)) {
 
-    return;
-  }
-
-  $queue = DrupalQueue::get('max_image_size');
-  $queue->createQueue();
-  // Only check for larger images if our queue is currently empty.
-  if ($queue->numberOfItems() > 0) {
-
-    return;
-  }
-
-  $fids = max_image_size_get_oversized_images();
-  if (!empty($fids)) {
-
-    foreach ($fids as $fid) {
-
-      $queue->createItem($fid);
-    }
+    max_image_size_queue_unprocessed_images();
   }
 }
 
@@ -157,42 +146,30 @@ function max_image_size_permission() {
 }
 
 /**
- * Get all images that are larger than the configured size.
+ * Get all images that have not been processed yet.
  *
  * @return array
- *   An array of file IDs that are larger than the configured dimensions.
+ *   An array of file IDs that have not been processed yet.
  */
-function max_image_size_get_oversized_images() {
+function max_image_size_get_unprocessed_images() {
 
-  $fids = drupal_static(__FUNCTION__, array());
+  // Find any new images that aren't in our process table.
+  max_image_size_discover_images();
 
-  if (empty($fids)) {
+  $dimensions = max_image_size_get_max_dimensions();
 
-    $dimensions = max_image_size_get_max_dimensions();
-
-    $or = db_or();
-    foreach (array('width', 'height') as $key) {
-
-      $or->condition(
-          db_and()
-            ->condition('m.name', $key)
-            // MySQL specific! Chops off 'i:' and ';' from serialized size value
-            // and casts it to an int.
-            // Using this cast twice as a where clause should be faster than the
-            // use of group by + having.
-            ->where('CAST(SUBSTRING(m.value, 3, LENGTH(m.value) - 3) AS UNSIGNED) > :size', array(':size' => $dimensions[$key]))
-        );
-    }
-
-    // Find images that are already in the system with dimensions greater than
-    // our target size.
-    $query = db_select('file_metadata', 'm')
-              ->fields('m', array('fid'))
-              ->condition($or)
-              ->distinct();
-
-    $fids = $query->execute()->fetchCol();
-  }
+  $fids = db_select('max_image_size', 's')
+    ->fields('s', array('fid'))
+    ->condition(db_or()
+      // Only get unprocessed images...
+      ->condition('s.processed', MAX_IMAGE_SIZE_UNPROCESSED)
+      ->condition('s.width', $dimensions['width'], '>')
+      ->condition('s.height', $dimensions['height'], '>')
+    )
+    ->addTag('max_image_size')
+    ->addTag('unprocessed_images')
+    ->execute()
+    ->fetchCol();
 
   return $fids;
 }
@@ -260,11 +237,22 @@ function max_image_size_resize_file($file) {
   }
 
   $image = image_load($file->uri);
-  $original = $image;
+  $original = clone $image;
   if (!image_scale($image, $dimensions['width'], $dimensions['height'])) {
 
     return FALSE;
   }
+
+  // Update the process table entry with the new image information.
+  db_update('max_image_size')
+    ->fields(array(
+      'processed' => MAX_IMAGE_SIZE_PROCESSED,
+      'changed' => REQUEST_TIME,
+      'width' => $image->info['width'],
+      'height' => $image->info['height'],
+    ))
+    ->condition('fid', $file->fid)
+    ->execute();
 
   // image_scale() will return TRUE even if it doesn't adjust the image, so we
   // need to do our own check to avoid unnecessary image manipulations.
@@ -275,5 +263,107 @@ function max_image_size_resize_file($file) {
     return FALSE;
   }
 
-  return image_save($image) ? $image : FALSE;
+  if (!image_save($image)) {
+
+    watchdog('max_image_size', 'Unable to save image @fid', array('@fid' => $file->fid), WATCHDOG_NOTICE);
+
+    return FALSE;
+  }
+
+  return $image;
+}
+
+/**
+ * Add new image fids to the process table.
+ *
+ * @return int
+ *   The number of items inserted into the process table.
+ */
+function max_image_size_discover_images() {
+
+  $fids = max_image_size_get_unknown_fids();
+
+  if (empty($fids)) {
+
+    return false;
+  }
+
+  $query = db_insert('max_image_size', array('return' => Database::RETURN_AFFECTED))
+    ->fields(array('fid', 'created', 'processed'));
+
+  foreach ($fids as $fid) {
+
+    $file = file_load($fid);
+    if (empty($file)) {
+
+      continue;
+    }
+
+    $image = image_load($file->uri);
+
+    $query->values(array(
+        'fid' => $fid,
+        'processed' => MAX_IMAGE_SIZE_UNPROCESSED,
+        'created' => REQUEST_TIME,
+        'width' => $image->info['width'],
+        'height' => $image->info['height'],
+      ));
+  }
+
+  return $query->execute();
+}
+
+/**
+ * Get the fids that are not in the process table yet.
+ *
+ * @return array
+ *   An array of fids.
+ */
+function max_image_size_get_unknown_fids() {
+
+  // Subquery for getting the fids that are in the process table.
+  $subquery = db_select('max_image_size', 's')
+                ->fields('s', array('fid'))
+                ->distinct();
+
+  // Pull all fids from the file_managed table that aren't in the process table.
+  $query = db_select('file_managed', 'm')
+            ->fields('m', array('fid'))
+            ->condition('m.fid', $subquery, 'NOT IN');
+
+  // ...And restrict to those greater than the specified filesize.
+  $filesize_threshold = variable_get('max_image_size_filesize_threshold', FALSE);
+  if ($filesize_threshold) {
+
+    $query->condition('filesize', $filesize_threshold, '>=');
+  }
+
+  $fids = $query->execute()->fetchCol();
+
+  return $fids;
+}
+
+/**
+ * Queue up the unprocessed images so they can be processed by cron.
+ *
+ * @return int
+ *   The number of items added to the queue.
+ */
+function max_image_size_queue_unprocessed_images() {
+
+  $queue = DrupalQueue::get('max_image_size');
+  // Clear out the queue before adding more items.
+  $queue->deleteQueue();
+  $queue->createQueue();
+
+  $fids = max_image_size_get_unprocessed_images();
+  if (!empty($fids)) {
+
+    foreach ($fids as $fid) {
+
+      $queue->createItem($fid);
+    }
+  }
+
+  return count($fids);
 }
