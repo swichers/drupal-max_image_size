@@ -18,14 +18,6 @@ function max_image_size_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
       ),
-      'processed' => array(
-        'description' => 'The process status.',
-        'type' => 'int',
-        'size' => 'tiny',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-        'default' => 0,
-      ),
       'created' => array(
         'description' => 'The Unix timestamp when the process entry was created.',
         'type' => 'int',

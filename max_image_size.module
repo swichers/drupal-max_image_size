@@ -6,8 +6,6 @@
 
 define('MAX_IMAGE_SIZE_DEFAULT_WIDTH', 2560);
 define('MAX_IMAGE_SIZE_DEFAULT_HEIGHT', 1600);
-define('MAX_IMAGE_SIZE_UNPROCESSED', 0);
-define('MAX_IMAGE_SIZE_PROCESSED', 1);
 
 /**
  * Implements hook_file_presave().
@@ -161,8 +159,7 @@ function max_image_size_get_unprocessed_images() {
   $fids = db_select('max_image_size', 's')
     ->fields('s', array('fid'))
     ->condition(db_or()
-      // Only get unprocessed images...
-      ->condition('s.processed', MAX_IMAGE_SIZE_UNPROCESSED)
+      // Only get oversized images...
       ->condition('s.width', $dimensions['width'], '>')
       ->condition('s.height', $dimensions['height'], '>')
     )
@@ -246,7 +243,6 @@ function max_image_size_resize_file($file) {
   // Update the process table entry with the new image information.
   db_update('max_image_size')
     ->fields(array(
-      'processed' => MAX_IMAGE_SIZE_PROCESSED,
       'changed' => REQUEST_TIME,
       'width' => $image->info['width'],
       'height' => $image->info['height'],
@@ -289,7 +285,7 @@ function max_image_size_discover_images() {
   }
 
   $query = db_insert('max_image_size', array('return' => Database::RETURN_AFFECTED))
-    ->fields(array('fid', 'created', 'processed'));
+    ->fields(array('fid', 'created'));
 
   foreach ($fids as $fid) {
 
@@ -303,7 +299,6 @@ function max_image_size_discover_images() {
 
     $query->values(array(
         'fid' => $fid,
-        'processed' => MAX_IMAGE_SIZE_UNPROCESSED,
         'created' => REQUEST_TIME,
         'width' => $image->info['width'],
         'height' => $image->info['height'],
