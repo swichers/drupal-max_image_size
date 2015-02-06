@@ -34,6 +34,15 @@ settings.php and setting the following:
 ?>
 ```
 
+### Drush
+
+There are two drush commands available:
+
+`drush misq`: Queue images to process.
+`drush misp`: Process images.
+
+You can get more help and information by typing `drush help <command>`.
+
 ## This project has been sponsored by:
 
 **McMurry/TMG**
