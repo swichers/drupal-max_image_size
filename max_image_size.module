@@ -234,6 +234,16 @@ function max_image_size_resize_file($file) {
   }
 
   $image = image_load($file->uri);
+  if (empty($image)) {
+
+    watchdog('max_image_size',
+      'Unable to load image @fid',
+      array('@fid' => $fid),
+      WATCHDOG_NOTICE);
+
+    return FALSE;
+  }
+
   $original = clone $image;
   if (!image_scale($image, $dimensions['width'], $dimensions['height'])) {
 
