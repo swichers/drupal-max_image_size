@@ -216,7 +216,7 @@ function max_image_size_get_max_dimensions() {
  */
 function max_image_size_resize_file($file) {
 
-  if (empty($file->type) || 'image' != $file->type) {
+  if (empty($file->fid) || empty($file->type) || 'image' != $file->type) {
 
     return FALSE;
   }
@@ -432,6 +432,6 @@ function max_image_size_file_delete($file) {
 
   // Remove the file from our process table.
   db_delete('max_image_size')
-    ->condition('fid', $fild->fid)
+    ->condition('fid', $file->fid)
     ->execute();
 }
