@@ -109,7 +109,7 @@ function drush_max_image_size_process() {
                 '@fid' => $item->data,
                 '@index' => $i,
                 '@total' => $limit,
-                '@percent' => ceil($i / $limit) * 100,
+                '@percent' => round($i / $limit, 2) * 100,
               )), 'ok');
     max_image_size_resize_callback($item->data);
     $queue->deleteItem($item);
