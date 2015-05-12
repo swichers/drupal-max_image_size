@@ -39,7 +39,7 @@ function max_image_size_system_settings_form() {
     '#element_validate' => array('element_validate_integer_positive'),
   );
 
-  $form['filesize'] = array(
+  $form['max_image_size_filesize_threshold'] = array(
     '#type' => 'textfield',
     '#title' => t('Filesize threshold'),
     '#description' => t('The minimum size (in bytes) before the dimensions of an image are checked. Use 0 or leave blank to disable this feature.'),
