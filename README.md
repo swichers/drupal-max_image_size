@@ -42,12 +42,3 @@ There are two drush commands available:
 `drush misp`: Process images.
 
 You can get more help and information by typing `drush help <command>`.
-
-## This project has been sponsored by:
-
-**McMurry/TMG**
-  McMurry/TMG is a world-leading, results-focused content marketing firm. We
-  leverage the power of world-class content — in the form of the broad
-  categories of video, websites, print and mobile — to keep our clients’ brands
-  top of mind with their customers.  Visit http://www.mcmurrytmg.com for more
-  information.
