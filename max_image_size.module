@@ -127,7 +127,7 @@ function max_image_size_menu() {
     'title' => 'Max Image Size',
     'description' => 'Configure the behavior of the Max Image Size module.',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('max_image_size_system_settings_form'),
+    'page arguments' => array('max_image_size_settings_form'),
     'access arguments' => array('administer max_image_size'),
     'file' => 'max_image_size.admin.inc',
   );

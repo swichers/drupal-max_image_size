@@ -7,7 +7,7 @@
 /**
  * Implements hook_form().
  */
-function max_image_size_system_settings_form() {
+function max_image_size_settings_form() {
 
   $form = array();
 
@@ -77,7 +77,7 @@ function max_image_size_system_settings_form() {
       format_plural($pending, 'There is one image not processed.', 'There are @count images not processed.')),
   );
 
-  $form['#submit'][] = 'max_image_size_system_settings_form_submit';
+  $form['#submit'][] = 'max_image_size_settings_form_submit';
 
   return system_settings_form($form);
 }
@@ -85,7 +85,7 @@ function max_image_size_system_settings_form() {
 /**
  * Form submission handler.
  */
-function max_image_size_system_settings_form_submit($form, &$form_state) {
+function max_image_size_settings_form_submit($form, &$form_state) {
 
   // Again state that the dimension settings are very important and the process
   // is non-reversible.
